@@ -17,7 +17,7 @@ def do_clean(number=0):
 
     if number < 0:
         return
-    elif inumber in [0, 1]:
+    elif number == 0 or number == 1:
         number = 1
     else:
         number += 1
