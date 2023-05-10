@@ -1,83 +1,88 @@
-# Do Task 0 using puppet
+# Configures a web server for deployment of web_static.
 
-# Update and upgrade packages
-exec { 'update packages':
-  command => 'apt-get -y update',
-}
+# Nginx configuratio file
+$nginx_conf = "server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    add_header X-Served-By ${hostname};
+    root /var/www/html;
+    index  index.html index.htm;
+    location /hbnb_static {
+      alias /data/web_static/current;
+      index index.html index.htm;
+    }
+    location /redirect_me {
+      return 301 https://google.com;
+    }     error_page 404 /404.html;
 
-exec { 'upgrade packages':
-  command => 'apt-get -y upgrade',
-}
+    location /404 { 
+	root /var/www/html;
+	internal;
+    }
+}"
 
-# Install Nginx
 package {'nginx':
-  ensure => installed,
+    ensure   => 'present',
+    provider => 'apt'
 }
 
-# Create directories and index file
+file { '/data':
+    ensure  => 'directory'
+}
+
+file { '/data/web_static':
+    ensure => 'directory'
+}
+
+file { '/data/web_static/releases':
+    ensure => 'directory'
+}
+
 file { '/data/web_static/releases/test':
-  ensure => 'directory',
-  mode   => '0755',
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
+    ensure => 'directory'
 }
 
 file { '/data/web_static/shared':
-  ensure => 'directory',
-  mode   => '0755',
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
+    ensure => 'directory'
 }
 
 file { '/data/web_static/releases/test/index.html':
-  ensure  => 'file',
-  content => 'This is a test\n',
-  mode    => '0644',
-  owner   => 'ubuntu',
-  group   => 'ubuntu',
+    ensure  => 'present',
+    content => "Alx School Puppet Test\n"
 }
-
-# Create symbolic link and set ownership
 
 file { '/data/web_static/current':
-  ensure  => 'link',
-  target  => '/data/web_static/releases/test',
-  owner   => 'ubuntu',
-  group   => 'ubuntu',
-  require => [
-    File['/data/web_static/releases/test'],
-    File['/data/web_static/shared'],
-    File['/data/web_static/releases/test/index.html'],
-  ],
+    ensure => 'link',
+    target => '/data/web_static/releases/test'
 }
 
-# Configure Ngin
+exec { 'chown -R ubuntu:ubuntu /data/':
+    path => '/usr/bin/:/usr/local/bin/:/bin/'
+}
+
+file { '/var/www':
+    ensure => 'directory'
+}
+
+file { '/var/www/html':
+    ensure => 'directory'
+}
+
+file { '/var/www/html/index.html':
+    ensure  => 'present',
+    content => "Alx School Nginx\n"
+}
+
+file { '/var/www/html/404.html':
+    ensure  => 'present',
+    content => "Ceci n'est pas une page\n"
+}
 
 file { '/etc/nginx/sites-available/default':
-  ensure  => 'file',
-  mode    => '0644',
-  owner   => 'root',
-  group   => 'root',
-  content => "
-    server {
-	listen 80 default_server;
-	listen [::]:80 default_server;
-	location /hbnb_static/ {
-	    alias /data/web_static/current/;
-	}
-    }
-  ",
-  require => Package['nginx'],
-  notify  => Service['nginx'],
+    ensure  => 'present',
+    content => $nginx_conf
 }
 
-# Restart Nginx
-
-service {'nginx':
-  ensure  => running,
-  enable  => true,
-  require => [
-    File['/etc/nginx/sites-available/default'],
-    File['/data/web_static/current'],
-  ],
+exec { 'nginx restart':
+    path => '/etc/init.d/'
 }
